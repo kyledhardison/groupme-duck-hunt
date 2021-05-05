@@ -1,0 +1,6 @@
+__pycache__/
+other-data/
+bot_id.txt
+duck_data.json
+log.txt
+token.txt
