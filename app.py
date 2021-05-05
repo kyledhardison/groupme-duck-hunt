@@ -77,7 +77,7 @@ def bang(data):
             if sender_id in duck_data["bang"]:
                 duck_data["bang"][sender_id] += 1
                 message += "ducks."
-                if 100 % duck_data["bang"][sender_id] == 69:
+                if duck_data["bang"][sender_id] % 100 == 69:
                     message += " (nice)"
             else:
                 duck_data["bang"][sender_id] = 1
@@ -130,7 +130,7 @@ def befriend(data):
             if sender_id in duck_data["befriend"]:
                 duck_data["befriend"][sender_id] += 1
                 message += "friends."
-                if 100 % duck_data["befriend"][sender_id] == 69:
+                if duck_data["befriend"][sender_id] % 100 == 69:
                     message += " (nice)"
             else:
                 duck_data["befriend"][sender_id] = 1
@@ -163,7 +163,7 @@ def duck_stats(data):
         num_gap = strlen - len(nick) - len(str(n))
         underscores = "_" * num_gap
         message += "{}{}{}".format(nick, underscores, n) 
-        if 100 % n == 69:
+        if n % 100 == 69:
             message += " (nice)\n"
         else:
             message += "\n"
@@ -174,7 +174,7 @@ def duck_stats(data):
         num_gap = strlen - len(nick) - len(str(n))
         underscores = "_" * num_gap
         message += "{}{}{}".format(nick, underscores, n) 
-        if 100 % n == 69:
+        if n % 100 == 69:
             message += " (nice)\n"
         else:
             message += "\n"
