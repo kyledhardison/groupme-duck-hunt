@@ -26,17 +26,28 @@ def get_members(group_id):
         member_ids[m["user_id"]] = m["nickname"]
     return member_ids
 
-def hit_or_miss(duck_time, shoot_time):
+def hit_or_miss(duck_time, shoot_time, full_word):
     """
     Return chance to hit, lower chance if fast response (active chat)
+
+    Odds are worse if the abbreviation (/ban, /bef) is typed instead 
+    of full word (/bang, /befriend)
+
+    Don't say anything if you find this in my source code, it's funny
     """
-    if 0 <= shoot_time - duck_time <= 30:
-        chance = random.uniform(.6, .75)
+    if full_word:
+        if 0 <= shoot_time - duck_time <= 30:
+            chance = random.uniform(.6, .75)
+        else:
+            chance = random.uniform(.75, .9)
     else:
-        chance = random.uniform(.75, .9)
+        if 0 <= shoot_time - duck_time <= 30:
+            chance = random.uniform(.3, .4)
+        else:
+            chance = random.uniform(.4, .6)
     return chance
 
-def bang(data):
+def bang(data, full_word):
     global game_status, duck_data, delayed
     if not game_status["game_on"]:
         send_message("No active game.")
@@ -55,7 +66,7 @@ def bang(data):
     if game_status["duck_active"]:
         shoot_time = time.time()
         sender_id = data["sender_id"]
-        chance = hit_or_miss(game_status["duck_time"], shoot_time)
+        chance = hit_or_miss(game_status["duck_time"], shoot_time, full_word)
         
         if sender_id in delayed:
             if shoot_time <= delayed[sender_id]:
@@ -88,7 +99,7 @@ def bang(data):
     else:
         send_message("WTF {}, you tried to shoot a duck that's not there.".format(sender_name))
 
-def befriend(data):
+def befriend(data, full_word):
     global game_status, duck_data, delayed
     if not game_status["game_on"]:
         send_message("No active game.")
@@ -107,7 +118,7 @@ def befriend(data):
     if game_status["duck_active"]:
         bef_time = time.time()
         sender_id = data["sender_id"]
-        chance = hit_or_miss(game_status["duck_time"], bef_time)
+        chance = hit_or_miss(game_status["duck_time"], bef_time, full_word)
 
         if sender_id in delayed:
             if bef_time <= delayed[sender_id]:
@@ -204,15 +215,25 @@ def deploy_duck():
     dnoise = random.choice(duck_noise)
     rn = random.randint(1, len(dnoise) - 1)
     dnoise = dnoise[:rn] + u'\u200b' + dnoise[rn:]
-    send_message(dtail + dbody + dnoise)
+
+    duck_string = dtail + dbody + dnoise
+    game_status["duck_string"] = duck_string
+    game_status["duck_noise"] = dnoise
+    send_message(duck_string)
 
 def check_duck():
     global game_status
+
+    # If the duck has been sent but not verified, send another
+    if game_status["game_on"] and game_status["duck_active"] and not game_status["msg_verified"]:
+        sys.stdout.write("Re-deploying duck because verification failed...\n")
+        send_message(game_status["duck_string"])
+
     # If there's no duck and no next duck time, then set a next duck time
     if game_status["game_on"] and not game_status["duck_active"] and not game_status["next_duck_time_set"]:
         sys.stdout.write("Setting next duck time...\n")
-        # game_status["next_duck_time"] = random.randint(int(time.time()) + 300, int(time.time()) + 3600) # 5 minutes to an hour
-        game_status["next_duck_time"] = random.randint(int(time.time()) + 10800, int(time.time()) + 21600) # 3 hours to 6 hours
+        # game_status["next_duck_time"] = random.randint(int(time.time()) + 10800, int(time.time()) + 21600) # 3 hours to 6 hours
+        game_status["next_duck_time"] = random.randint(int(time.time()) + 21600, int(time.time()) + 43200) # 6 hours to 12 hours
         sys.stdout.write("Making duck. " + str(game_status["next_duck_time"] - time.time()) + " seconds from now\n")
         game_status["next_duck_time_set"] = True
 
@@ -223,6 +244,7 @@ def check_duck():
         game_status["next_duck_time_set"] = False
         game_status["duck_time"] = time.time()
         deploy_duck()
+
 
     sys.stdout.flush()
 
@@ -244,18 +266,38 @@ def new_message():
     global game_status
     data = json.loads(request.data)
 
+    text = data["text"].strip()
+
+    # Nice feature for debugging but ripe for abuse with public source code and no user verification
+    # if text.lower().startswith("/duckstart"):
+    #     game_status["game_on"] = True
+    #     send_message("Started.")
+    # if text.lower().startswith("/duckstop"):
+    #     game_status["game_on"] = False
+    #     send_message("Stopped.")
+
+    if not game_status["game_on"]:
+        return ""
+
     if game_status["next_duck_time_set"]:
         game_status["next_duck_time"] = game_status["next_duck_time"] - 90
 
     if data["sender_type"] == "bot":
+        if game_status["duck_active"] and not game_status["msg_verified"] and game_status["duck_noise"] in text:
+            game_status["msg_verified"] = True
         return ""
     
-    text = data["text"]
+    if text.lower().startswith("/bang"):
+        bang(data, True)
+ 
+    if text.lower().startswith("/befriend"):
+        befriend(data, True)
+
     if text.lower().startswith("/ban"):
-        bang(data)
+        bang(data, False)
  
     if text.lower().startswith("/bef"):
-        befriend(data)
+        befriend(data, False)
 
     if text.lower().startswith("/duckstats"):
         duck_stats(data)
@@ -297,7 +339,10 @@ game_status = {
         "duck_active": False,
         "duck_time": -1,
         "next_duck_time": -1,
-        "next_duck_time_set": False
+        "next_duck_time_set": False,
+        "duck_string": "",
+        "duck_noise": "",
+        "msg_verified": False
 }
 delayed = {}
 
@@ -311,3 +356,4 @@ scheduler.start()
 atexit.register(handle_exit)
 signal.signal(signal.SIGTERM, handle_exit)
 signal.signal(signal.SIGINT, handle_exit)
+
