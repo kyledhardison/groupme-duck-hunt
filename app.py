@@ -289,20 +289,25 @@ def new_message():
     
     if text.lower().startswith("/bang"):
         bang(data, True)
- 
+        return "" 
+
     if text.lower().startswith("/befriend"):
         befriend(data, True)
+        return "" 
 
     if text.lower().startswith("/ban"):
         bang(data, False)
+        return "" 
  
     if text.lower().startswith("/bef"):
         befriend(data, False)
+        return "" 
 
     if text.lower().startswith("/duckstats"):
         duck_stats(data)
+        return "" 
 
-    return ""
+
 
 
 # Global variables
